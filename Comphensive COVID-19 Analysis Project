@@ -1,0 +1,203 @@
+-1
+SELECT *
+FROM Portfolio.dbo.CovidDeaths
+ORDER BY 1, 2
+
+
+SELECT location, date, total_cases, total_deaths,
+       CAST(total_deaths AS decimal(10,1)) / NULLIF(total_cases, 0) * 100 AS death_percentage
+FROM Portfolio.dbo.CovidDeaths
+ORDER BY continent, date;
+
+
+SELECT DISTINCT location 
+FROM Portfolio.dbo.CovidDeaths
+
+SELECT location, date, total_cases, total_deaths,
+       CAST(total_deaths AS decimal(10,1)) / NULLIF(total_cases, 0) * 100 AS death_percentage
+FROM Portfolio.dbo.CovidDeaths
+WHERE location NOT LIKE '%state%'
+  AND location NOT LIKE '%country%'
+ORDER BY location, date;
+
+--2
+
+SELECT countries.location, cd.date, cd.total_cases, cd.total_deaths,
+       CAST(cd.total_deaths AS decimal(10,1)) / NULLIF(cd.total_cases, 0) * 100 AS death_percentage
+FROM (
+    SELECT DISTINCT location
+    FROM Portfolio.dbo.CovidDeaths
+) AS countries
+LEFT JOIN Portfolio.dbo.CovidDeaths AS cd
+    ON countries.location = cd.location
+ORDER BY countries.location, cd.date;
+
+
+--3
+SELECT *
+FROM Portfolio.dbo.CovidDeaths
+WHERE continent is not null
+ORDER BY 3, 4
+
+
+SELECT countries.location, cd.date, cd.total_cases, cd.population,
+       CAST(cd.total_cases AS decimal(10,1)) / NULLIF(cd.population, 0) * 100 AS death_percentage
+FROM (
+    SELECT DISTINCT location
+    FROM Portfolio.dbo.CovidDeaths
+) AS countries
+LEFT JOIN Portfolio.dbo.CovidDeaths AS cd
+    ON countries.location = cd.location
+ORDER BY countries.location, cd.date;
+
+
+
+SELECT
+    cd.continent,
+    MAX(CAST(cd.total_deaths AS int)) AS totaldeathcount
+FROM
+    (
+        SELECT DISTINCT location, continent, total_deaths
+        FROM Portfolio.dbo.CovidDeaths
+    ) AS cd
+WHERE cd.continent IS NOT NULL
+GROUP BY
+    cd.continent
+ORDER BY
+    totaldeathcount DESC;
+
+--4
+
+SELECT
+    date,
+    SUM(new_cases) as total_cases,
+    SUM(CAST(new_deaths AS int)) as total_deaths,
+    CAST(SUM(CAST(new_deaths AS decimal(10, 1))) / NULLIF(SUM(new_cases), 0) * 100 AS decimal(10, 1)) AS death_percentage
+FROM
+    Portfolio.dbo.CovidDeaths
+WHERE
+    continent IS NOT NULL
+GROUP BY
+    date
+ORDER BY
+    date, SUM(new_cases);
+
+
+	SELECT
+    SUM(new_cases) as total_cases,
+    SUM(CAST(new_deaths AS int))as total_deaths,
+    CAST(SUM(CAST(new_deaths AS decimal(10, 1))) / NULLIF(SUM(new_cases), 0) * 100 AS decimal(10, 1)) AS death_percentage
+FROM
+    Portfolio.dbo.CovidDeaths
+WHERE
+    continent IS NOT NULL
+ORDER BY 
+    1,2;
+
+--5
+
+WITH popvsvac (continent, location, date, population, new_vaccinations, peoplevaccinated)
+as
+(
+SELECT dea.continent,dea.location,dea.date,dea.population, vac.new_vaccinations
+, SUM(CONVERT(int,vac.new_vaccinations)) OVER (partition by dea.location ORDER BY dea.location, dea.date ) AS peoplevaccinated
+FROM Portfolio.dbo.CovidDeaths dea
+join Portfolio.dbo.CovidVaccination vac
+     on dea.location = vac.location
+	 and dea.date =vac.date
+WHERE dea.continent is not null
+)
+
+
+SELECT *, 
+        (CAST(peoplevaccinated AS decimal) / population) * 100 AS vaccination_percentage
+FROM popvsvac
+
+
+
+--6
+DROP TABLE IF EXISTS Percentpopulationvaccinated
+
+CREATE TABLE Percentpopulationvaccinated
+(
+continent nvarchar (255),
+location nvarchar (255),
+date datetime,
+population numeric,
+new_vaccination numeric,
+peoplevaccinated numeric
+)
+
+insert into Percentpopulationvaccinated
+SELECT dea.continent,dea.location,dea.date,dea.population, vac.new_vaccinations
+, SUM(CONVERT(int,vac.new_vaccinations)) OVER (partition by dea.location ORDER BY dea.location, dea.date ) AS peoplevaccinated
+FROM Portfolio.dbo.CovidDeaths dea
+join Portfolio.dbo.CovidVaccination vac
+     on dea.location = vac.location
+	 and dea.date =vac.date
+WHERE dea.continent is not null
+
+SELECT *, 
+        (CAST(peoplevaccinated AS decimal) / population) * 100 AS vaccination_percentage
+FROM Percentpopulationvaccinated
+
+--7
+
+CREATE VIEW Percentpopulationvaccinated AS
+SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
+    SUM(CONVERT(int, vac.new_vaccinations)) OVER (PARTITION BY dea.location ORDER BY dea.location, dea.date) AS peoplevaccinated
+FROM Portfolio.dbo.CovidDeaths dea
+JOIN Portfolio.dbo.CovidVaccination vac ON dea.location = vac.location AND dea.date = vac.date
+WHERE dea.continent IS NOT NULL;
+
+
+SELECT *
+FROM Percentpopulationvaccinated
+
+
+-- 8. 
+
+SELECT
+    SUM(new_cases) AS total_cases,
+    SUM(CAST(new_deaths AS INT)) AS total_deaths,
+    CAST(SUM(CAST(new_deaths AS INT)) AS DECIMAL(10, 1)) / NULLIF(SUM(new_cases), 0) * 100 AS DeathPercentage
+FROM
+    Portfolio.dbo.CovidDeaths
+WHERE
+    continent IS NOT NULL
+ORDER BY
+    1, 2;
+
+--9.
+Select location, SUM(cast(new_deaths as int)) as TotalDeathCount
+From Portfolio.dbo.CovidDeaths
+Where continent is null 
+and location not in ('World', 'European Union', 'International')
+Group by location
+order by TotalDeathCount desc
+
+
+-- 10.
+
+Select 
+      Location, 
+	  Population, 
+	  MAX(total_cases) as HighestInfectionCount,  
+	  CAST(Max(total_cases) AS decimal(10,1))/NULLIF (population, 0)*100 as PercentPopulationInfected
+From Portfolio.dbo.CovidDeaths
+Group by Location, Population
+order by PercentPopulationInfected desc
+
+
+-- .
+
+
+Select 
+    Location, 
+	Population,
+	date, 
+	MAX(total_cases) as HighestInfectionCount,  
+	CAST(Max(total_cases) AS decimal(10,1))/NULLIF(population,0)*100 as PercentPopulationInfected
+From Portfolio.dbo.CovidDeaths
+Group by Location, Population, date
+order by PercentPopulationInfected desc
