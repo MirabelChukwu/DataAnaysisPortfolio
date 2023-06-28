@@ -201,3 +201,6 @@ Select
 From Portfolio.dbo.CovidDeaths
 Group by Location, Population, date
 order by PercentPopulationInfected desc
+
+--this project is done.
+--Visualization with be linked to the README.md file.
